@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>webrtc service</title>
+    <style>
+        button {
+            margin: 0 20px 25px 0;
+            vertical-align: top;
+            width: 134px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Realtime communication with webRTC</h1>
+    <div>
+        <video autoplay playsinline id="player"></video>
+    </div>
+
+    <div>
+<!--        <button name="capture picture" id="capturePic">capture picture</button>-->
+        <button id="record">start record</button>
+        <button id="replay">replay</button>
+        <button id="download">download</button>
+    </div>
+
+<!--    <div>-->
+<!--        <canvas id="picture"></canvas>-->
+<!--    </div>-->
+
+    <div>
+        <video playsinline id="replayVideo"></video>
+    </div>
+</body>
+<script>
+    let buffer
+    let mediaRecorder;
+
+    let btnRecord = document.querySelector("button#record")
+    let btnReplay = document.querySelector("button#replay")
+    let btnDownload = document.querySelector("button#download")
+    let replayVideo = document.querySelector("video#replayVideo")
+
+    function start() {
+        const mediaStreamConstrain = {
+            video: {
+                height: 360,
+                width: 640,
+                frameRate: 15
+            }
+            // audio: true
+        }
+        const localVideo = document.querySelector("video")
+
+        function setMediaStream(mediaStream) {
+            localVideo.srcObject = mediaStream
+            window.stream = mediaStream
+        }
+
+        function errorHandle(err) {
+            console.error("error:", err)
+        }
+
+        // 输出音视频
+        navigator.mediaDevices.getUserMedia(mediaStreamConstrain).then(setMediaStream).catch(errorHandle);
+
+        // 打印设备信息
+        navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            devices.forEach(function (device) {
+                console.info("deviceId: " + device.deviceId + ", label: " + device.label + ", kind: " + device.kind)
+            })
+        })
+    }
+    function capturePicture() {
+        const picture = document.querySelector("canvas#picture")
+        picture.width = 640
+        picture.height = 360
+        document.querySelector("button#capturePic").onclick = () => picture.getContext("2d").drawImage(localVideo, 0, 0, picture.width, picture.height)
+    }
+
+    function record() {
+        buffer = []
+        const option = {
+            mediaType: "video/webm;codecs=vp8"
+        }
+        if (!MediaRecorder.isTypeSupported(option.mediaType)) {
+            console.error("not support this media type => ", option.mediaType)
+            return
+        }
+        try {
+            mediaRecorder = new MediaRecorder(window.stream, option)
+        } catch (e) {
+            console.error(e)
+            return
+        }
+        mediaRecorder.ondataavailable = (e) => {
+            if (e && e.data && e.data.size > 0) {
+                buffer.push(e.data)
+            }
+        }
+        mediaRecorder.start(100)
+    }
+
+    btnRecord.onclick = () => {
+        if (btnRecord.textContent === "start record") {
+            record()
+            btnRecord.textContent = "stop record"
+            btnReplay.disabled = false
+            btnDownload.disabled = false
+        } else {
+            mediaRecorder.stop()
+            btnRecord.textContent = "start record"
+            btnReplay.disabled = true
+            btnDownload.disabled = true
+        }
+    }
+    btnReplay.onclick = () => {
+        const blod = new Blob(buffer, {type: 'video/webm'})
+        replayVideo.src = window.URL.createObjectURL(blod)
+        replayVideo.srcObject = null
+        replayVideo.controller = true
+        replayVideo.play()
+    }
+    btnDownload.onclick = ()=> {
+        let blob = new Blob(buffer, {type: 'video/webm'});
+        let url = window.URL.createObjectURL(blob);
+        let a = document.createElement('a');
+
+        a.href = url;
+        a.style.display = 'none';
+        a.download = 'aaa.webm';
+        a.click();
+    }
+    start()
+    capturePicture()
+</script>
+</html>
